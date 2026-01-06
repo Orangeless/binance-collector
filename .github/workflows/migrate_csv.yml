@@ -1,0 +1,69 @@
+name: One-time CSV migration (add open_time_utc)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run CSV migration
+        run: |
+          python - << 'PYCODE'
+import csv
+import os
+from datetime import datetime, timezone
+
+CSV_PATH = os.path.join("data", "ETHUSDT_5m.csv")
+TMP_PATH = os.path.join("data", "ETHUSDT_5m.csv.tmp")
+
+def ms_to_utc_str(ms: int) -> str:
+    dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+if not os.path.exists(CSV_PATH):
+    raise SystemExit(f"CSV not found: {CSV_PATH}")
+
+with open(CSV_PATH, "r", newline="", encoding="utf-8") as fin:
+    reader = csv.reader(fin)
+    header = next(reader)
+
+    if "open_time_utc" in header:
+        print("CSV already migrated. Nothing to do.")
+        raise SystemExit(0)
+
+    new_header = header[:1] + ["open_time_utc"] + header[1:]
+
+    with open(TMP_PATH, "w", newline="", encoding="utf-8") as fout:
+        writer = csv.writer(fout)
+        writer.writerow(new_header)
+
+        rows = 0
+        for row in reader:
+            open_ms = int(row[0])
+            utc = ms_to_utc_str(open_ms)
+            writer.writerow(row[:1] + [utc] + row[1:])
+            rows += 1
+
+os.replace(TMP_PATH, CSV_PATH)
+print(f"Migrated {rows} rows.")
+PYCODE
+
+      - name: Commit migrated CSV
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ETHUSDT_5m.csv
+          git commit -m "One-time migration: add open_time_utc column"
+          git push
