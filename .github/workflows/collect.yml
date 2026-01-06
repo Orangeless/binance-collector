@@ -2,7 +2,7 @@ name: Collect ETHUSDT 5m Candles
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # every 5 minutes
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -32,6 +32,11 @@ jobs:
       - name: Run collector
         run: |
           python collector.py
+
+      - name: Heartbeat (always update so schedule is visible)
+        run: |
+          mkdir -p state
+          date -u +"%Y-%m-%d %H:%M:%S UTC" > state/heartbeat_utc.txt
 
       - name: Commit & push if changed
         run: |
