@@ -3,7 +3,7 @@ import os
 import time
 import requests
 
-BASE = "https://api.binance.com"
+BASE = "https://data-api.binance.vision"
 SYMBOL = "ETHUSDT"
 INTERVAL = "5m"
 LIMIT = 1000
